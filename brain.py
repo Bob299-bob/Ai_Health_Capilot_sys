@@ -63,12 +63,19 @@ except Exception as e:
 #chunking
 splitter=RecursiveCharacterTextSplitter(chunk_size=500,chunk_overlap=100)
 #Vector Embedding
-model=SentenceTransformer(
-    'all-MiniLM-L6-v2'
-)
+@st.cache_resource
+def load_embedder():
+    return SentenceTransformer("all-MiniLM-L6-v2")
+
+model = load_embedder()
 #load model
-heart_model=joblib.load('models/heart.pkl')
-syptom_model=joblib.load('models/syptom.pkl')
+@st.cache_resource
+def load_ml_models():
+    heart = joblib.load("models/heart.pkl")
+    symptom = joblib.load("models/syptom.pkl")
+    return heart, symptom
+
+heart_model, syptom_model = load_ml_models()
 
 #extract  pdf data
 def extract_pdf(data_path):
