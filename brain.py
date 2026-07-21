@@ -1,0 +1,243 @@
+import pdfplumber
+from sentence_transformers import SentenceTransformer
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+import joblib
+import faiss
+from tensorflow.keras.models import load_model
+from tensorflow.keras.utils import img_to_array,load_img
+import numpy as np
+import pandas as pd
+from ddgs import DDGS
+from groq import Groq
+from dotenv import load_dotenv
+import os 
+import streamlit as st
+
+#brain model is to heavy so we use this 
+@st.cache_resource
+def load_my_model():
+    import gdown
+    brain_model = "bmodel.h5"
+    pneumonia_model='model.h5'
+    
+    if not os.path.exists(pneumonia_model):
+        file_id = "14IyMX994U8WAREvVEX2HFwv0gTjrh8NE"
+        url = f"https://drive.google.com/uc?id={file_id}"
+        gdown.download(url,pneumonia_model, quiet=False)
+
+    if not os.path.exists(brain_model):
+        file_id = "1xPv-pkYRntD_BzFgTpq0K9yQq24qPo9X"
+        url = f"https://drive.google.com/uc?id={file_id}"
+        gdown.download(url,brain_model, quiet=False)
+
+    return load_model(pneumonia_model),load_model(brain_model)
+
+#call api
+load_dotenv()
+client=Groq(api_key=os.getenv('GROQ_API_KEY'))
+#chunking
+splitter=RecursiveCharacterTextSplitter(chunk_size=500,chunk_overlap=100)
+#Vector Embedding
+model=SentenceTransformer(
+    'all-MiniLM-L6-V2'
+)
+#load model
+heart_model=joblib.load('models/heart.pkl')
+syptom_model=joblib.load('models/syptom.pkl')
+pnemon_model,brain_model=load_my_model()
+
+#extract  pdf data
+def extract_pdf(data_path):
+    extract_data=''
+    with pdfplumber.open(data_path) as pdf:
+        for page in pdf.pages:
+            page_text=page.extract_text()
+            if page_text:
+                extract_data+=page_text+'\n'
+    return extract_data
+
+#create rag system 
+def rag_system(data):
+    pdf_text=splitter.split_text(data)
+    pdf_embedding=model.encode(pdf_text).astype('float32')
+    faiss.normalize_L2(pdf_embedding)
+    index=faiss.IndexFlatIP(pdf_embedding.shape[1])
+    index.add(pdf_embedding)
+    return index,pdf_text
+
+#create retrieve system
+def retrieve_sys(index,pdf_text,query):
+    chunks=[]
+    #vector embed for query
+    query_embed=model.encode([query]).astype('float32')
+    faiss.normalize_L2(query_embed)
+    #find indices
+    distance,indices=index.search(query_embed,k=min(5,len(pdf_text)))
+    for idx in indices[0]:
+        chunks.append(pdf_text[idx])
+    return chunks
+
+def search_net(query):
+    results=[]
+    with DDGS() as ddgs:
+        search_result=list(ddgs.text(query,max_results=5))
+        for result in search_result:
+            results.append(f'''
+                        Content:{result.get('body','')}
+                           ''')
+    return '\n\n'.join(results)
+
+def generate_report(answer,result,query):
+    context="\n\n".join(answer)
+    context=context[:6000]
+    prompt = f"""
+You are an experienced Medical Report Analysis Assistant.
+
+Patient Medical Report:
+{context}
+
+Additional Information from Web Search:
+{result}
+
+Task:
+Analyze the medical report and generate a detailed patient-friendly report.
+
+Rules:
+- Use ONLY the information provided in the medical report.
+- Do NOT make up diagnoses.
+- Clearly mention if any values are outside normal ranges.
+- Explain medical terms in simple language.
+- Mention possible health concerns only if supported by the report.
+- If information is insufficient, explicitly state that.
+- Avoid giving definitive medical diagnoses.
+- Suggest consulting a qualified doctor when appropriate.
+
+Generate the report in the following format:
+
+# Medical Report Summary
+
+## Patient Overview
+- Brief summary of the report
+
+## Key Test Results
+- List important findings
+- Mention normal and abnormal values
+
+## Abnormal Findings
+- Highlight any concerning results
+- Explain what they may indicate
+
+## Health Interpretation
+- Simple explanation of what the report suggests
+
+## Risk Indicators
+- Any potential risks visible in the report
+
+## Recommended Follow-Up
+- Suggested medical consultations
+- Additional tests if necessary
+
+## Conclusion
+- Overall assessment in simple language
+
+User Question:
+{query}
+"""
+    response=client.chat.completions.create(
+         model='llama-3.1-8b-instant',
+        messages=[{'role':'user','content':prompt}]
+    )
+    return response.choices[0].message.content
+
+#ai chatbot
+def chatbot(query):
+    prompt=f'''
+You are MedAssist Pro, an AI-powered Healthcare Assistant.
+
+Your responsibilities:
+- Answer health-related questions in simple and easy-to-understand language.
+- Explain diseases, symptoms, causes, risk factors, prevention, diagnosis, and treatments.
+- Suggest healthy lifestyle changes when appropriate.
+- Recommend consulting a qualified doctor for serious or emergency symptoms.
+- Do NOT prescribe controlled medications or provide a final medical diagnosis.
+- If the user describes emergency symptoms (such as chest pain, severe bleeding, difficulty breathing, stroke symptoms, or loss of consciousness), advise them to seek immediate emergency medical care.
+- If the information is insufficient, ask follow-up questions before giving suggestions.
+- Keep responses accurate, concise, and medically responsible.
+
+Response format:
+1. Possible Explanation
+2. Common Causes
+3. Recommended Next Steps
+4. Home Care Tips (if appropriate)
+5. When to See a Doctor
+6. Disclaimer
+
+User Question:
+{query}
+'''
+    response=client.chat.completions.create(
+        model='llama-3.1-8b-instant',
+        messages=[{'role':'user','content':prompt}]
+    )
+    return response.choices[0].message.content
+
+#brain model
+def brain_sys(data):
+    #to load img
+    img=load_img(data,target_size=(200,200))
+    #convert into array
+    img_array=img_to_array(img)
+    #expand dims
+    expand_dim=np.expand_dims(img_array,axis=0)
+    #resize img
+    fin_img=expand_dim/255.0
+    pred=brain_model.predict(fin_img)
+    class_names=['glioma','meningioma','notumor','pituitary','unknown']
+    result=class_names[np.argmax(pred)]
+    confidence=np.max(pred)*100
+    return result,confidence
+
+#pneumonia model
+def pneumon_sys(data):
+    img=load_img(data,target_size=(200,200))
+    img_arr=img_to_array(img)
+    exp_img=np.expand_dims(img_arr,axis=0)
+    fin=exp_img/255.0
+    pred=pnemon_model.predict(fin)
+    class_names=['Covid','Normal','Pneumonia']
+    result=class_names[np.argmax(pred)]
+    confidence=np.max(pred)*100
+    return result,confidence
+
+@st.cache_data
+def syptom_data():
+    import gdown
+    file_path = "syptom.csv"
+
+    if not os.path.exists(file_path):
+        file_id = "1vhMGnVqpMplEiPngjNuA8AdUW_rZI35u"
+        url = f"https://drive.google.com/uc?id={file_id}"
+
+        gdown.download(url, file_path, quiet=False)
+
+    return pd.read_csv(file_path)
+
+def syptom_sys(select):
+    # Load dataset only to get column names
+    data=syptom_data()
+    # Feature names
+    symptoms = data.drop("diseases", axis=1).columns
+    # Initialize all symptoms as 0
+    user = {}
+    for col in symptoms:
+        user[col]=0
+
+    for symptom in select:
+        user[symptom]=1
+    
+    # Convert to DataFrame
+    input_df = pd.DataFrame([user])
+    # Predict
+    prediction = syptom_model.predict(input_df)
+    print('result\n',prediction[0])
+    return prediction[0]
