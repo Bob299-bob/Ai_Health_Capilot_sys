@@ -1,0 +1,16 @@
+streamlit
+pandas
+numpy
+scikit-learn
+joblib
+tensorflow==2.16.1
+Pillow
+pdfplumber
+sentence-transformers
+langchain-text-splitters
+faiss-cpu==1.8.0
+groq
+python-dotenv
+ddgs
+gdown
+requests
