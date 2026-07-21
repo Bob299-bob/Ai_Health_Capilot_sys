@@ -41,9 +41,15 @@ splitter=RecursiveCharacterTextSplitter(chunk_size=500,chunk_overlap=100)
 model=SentenceTransformer(
     'all-MiniLM-L6-V2'
 )
-#load model
-heart_model=joblib.load('models/heart.pkl')
-syptom_model=joblib.load('models/syptom.pkl')
+
+@st.cache_resource
+def load_heart():
+    return joblib.load("models/heart.pkl")
+
+@st.cache_resource
+def load_symptom():
+    return joblib.load("models/syptom.pkl")
+
 pnemon_model,brain_model=load_my_model()
 
 #extract  pdf data
@@ -238,6 +244,7 @@ def syptom_sys(select):
     # Convert to DataFrame
     input_df = pd.DataFrame([user])
     # Predict
+    syptom_model=load_symptom()
     prediction = syptom_model.predict(input_df)
     print('result\n',prediction[0])
     return prediction[0]
