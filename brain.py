@@ -64,7 +64,7 @@ except Exception as e:
 splitter=RecursiveCharacterTextSplitter(chunk_size=500,chunk_overlap=100)
 #Vector Embedding
 model=SentenceTransformer(
-    'all-MiniLM-L6-V2'
+    'all-MiniLM-L6-v2'
 )
 #load model
 heart_model=joblib.load('models/heart.pkl')
