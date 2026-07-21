@@ -50,12 +50,14 @@ try:
     load_dotenv()
 
     api_key = os.getenv("GROQ_API_KEY")
-    print("API KEY:", api_key)
+
+    if not api_key:
+        raise RuntimeError(
+            "GROQ_API_KEY not found. Add it in Streamlit Cloud → Settings → Secrets."
+        )
 
     client = Groq(api_key=api_key)
-
-    print("Groq Loaded")
-
+    print("Groq Loaded Successfully")
 except Exception as e:
     import traceback
     traceback.print_exc()
