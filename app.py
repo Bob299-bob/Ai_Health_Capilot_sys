@@ -1,5 +1,5 @@
 import streamlit as st
-from brain import chatbot,search_net,generate_report,syptom_sys,extract_pdf,rag_system,retrieve_sys,brain_sys,pneumon_sys,heart_model,syptom_model
+from brain import chatbot,search_net,generate_report,syptom_sys,extract_pdf,rag_system,retrieve_sys,brain_sys,pneumon_sys,load_heart
 import pandas as pd
 import gdown
 import os
@@ -332,6 +332,7 @@ elif module == "❤️ Heart Disease":
             ca,
             thal
         ]]
+        heart_model=load_heart()
         pred=heart_model.predict(input_data)
         prob = heart_model.predict_proba(input_data)
         if pred[0] == 1:
