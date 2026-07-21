@@ -15,22 +15,37 @@ import streamlit as st
 
 #brain model is to heavy so we use this 
 @st.cache_resource
-def load_my_model():
+def load_brain_model():
     import gdown
-    brain_model = "bmodel.h5"
-    pneumonia_model='model.h5'
-    
-    if not os.path.exists(pneumonia_model):
-        file_id = "14IyMX994U8WAREvVEX2HFwv0gTjrh8NE"
-        url = f"https://drive.google.com/uc?id={file_id}"
-        gdown.download(url,pneumonia_model, quiet=False)
 
-    if not os.path.exists(brain_model):
+    model_path = "bmodel.h5"
+
+    if not os.path.exists(model_path):
         file_id = "1xPv-pkYRntD_BzFgTpq0K9yQq24qPo9X"
-        url = f"https://drive.google.com/uc?id={file_id}"
-        gdown.download(url,brain_model, quiet=False)
+        gdown.download(
+            f"https://drive.google.com/uc?id={file_id}",
+            model_path,
+            quiet=False
+        )
 
-    return load_model(pneumonia_model),load_model(brain_model)
+    return load_model(model_path)
+
+
+@st.cache_resource
+def load_pneumonia_model():
+    import gdown
+
+    model_path = "model.h5"
+
+    if not os.path.exists(model_path):
+        file_id = "14IyMX994U8WAREvVEX2HFwv0gTjrh8NE"
+        gdown.download(
+            f"https://drive.google.com/uc?id={file_id}",
+            model_path,
+            quiet=False
+        )
+
+    return load_model(model_path)
 
 #call api
 load_dotenv()
@@ -41,16 +56,9 @@ splitter=RecursiveCharacterTextSplitter(chunk_size=500,chunk_overlap=100)
 model=SentenceTransformer(
     'all-MiniLM-L6-V2'
 )
-
-@st.cache_resource
-def load_heart():
-    return joblib.load("models/heart.pkl")
-
-@st.cache_resource
-def load_symptom():
-    return joblib.load("models/syptom.pkl")
-
-pnemon_model,brain_model=load_my_model()
+#load model
+heart_model=joblib.load('models/heart.pkl')
+syptom_model=joblib.load('models/syptom.pkl')
 
 #extract  pdf data
 def extract_pdf(data_path):
@@ -197,6 +205,7 @@ def brain_sys(data):
     expand_dim=np.expand_dims(img_array,axis=0)
     #resize img
     fin_img=expand_dim/255.0
+    brain_model=load_brain_model()
     pred=brain_model.predict(fin_img)
     class_names=['glioma','meningioma','notumor','pituitary','unknown']
     result=class_names[np.argmax(pred)]
@@ -209,6 +218,7 @@ def pneumon_sys(data):
     img_arr=img_to_array(img)
     exp_img=np.expand_dims(img_arr,axis=0)
     fin=exp_img/255.0
+    pnemon_model=load_pneumonia_model()
     pred=pnemon_model.predict(fin)
     class_names=['Covid','Normal','Pneumonia']
     result=class_names[np.argmax(pred)]
@@ -244,7 +254,6 @@ def syptom_sys(select):
     # Convert to DataFrame
     input_df = pd.DataFrame([user])
     # Predict
-    syptom_model=load_symptom()
     prediction = syptom_model.predict(input_df)
     print('result\n',prediction[0])
     return prediction[0]
