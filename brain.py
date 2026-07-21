@@ -46,10 +46,20 @@ def load_pneumonia_model():
         )
 
     return load_model(model_path)
+try:
+    load_dotenv()
 
-#call api
-load_dotenv()
-client=Groq(api_key=os.getenv('GROQ_API_KEY'))
+    api_key = os.getenv("GROQ_API_KEY")
+    print("API KEY:", api_key)
+
+    client = Groq(api_key=api_key)
+
+    print("Groq Loaded")
+
+except Exception as e:
+    import traceback
+    traceback.print_exc()
+    raise e
 #chunking
 splitter=RecursiveCharacterTextSplitter(chunk_size=500,chunk_overlap=100)
 #Vector Embedding
