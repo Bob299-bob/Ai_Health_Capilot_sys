@@ -413,7 +413,7 @@ elif module == "📄 Medical Report Analyzer":
     )
     query=st.text_input('Enter your query')
     if st.button("Analyze"):
-        if pdf is not None:
+        if pdf is not None and query.strip():
             pdf_text=extract_pdf(pdf)
             index,pdf_text=rag_system(pdf_text)
             chunk=retrieve_sys(index,pdf_text,query)
