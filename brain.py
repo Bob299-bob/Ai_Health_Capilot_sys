@@ -247,10 +247,9 @@ def pneumon_sys(data):
 @st.cache_data
 def syptom_data():
     import gdown
-    file_path = "syptom.csv"
-
+    file_path = "symptom_columns.csv"
     if not os.path.exists(file_path):
-        file_id = "1vhMGnVqpMplEiPngjNuA8AdUW_rZI35u"
+        file_id = "1pJ_L_RLqzcTpAHMl54IKbtTqz4LcAxwG"
         url = f"https://drive.google.com/uc?id={file_id}"
 
         gdown.download(url, file_path, quiet=False)
