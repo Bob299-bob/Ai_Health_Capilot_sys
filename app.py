@@ -1,22 +1,4 @@
 import streamlit as st
-from brain import chatbot,search_net,generate_report,syptom_sys,extract_pdf,rag_system,retrieve_sys,brain_sys,pneumon_sys,heart_model
-import pandas as pd
-import gdown
-import os
-
-@st.cache_data
-def syptom_data():
-    file_path = "symptom_columns.csv"
-    if not os.path.exists(file_path):
-        file_id = "1pJ_L_RLqzcTpAHMl54IKbtTqz4LcAxwG"
-        url = f"https://drive.google.com/uc?id={file_id}"
-
-        gdown.download(url, file_path, quiet=False)
-
-    return pd.read_csv(file_path)
-
-data = syptom_data()
-symptoms_list = data.drop("diseases", axis=1).columns.tolist()
 st.set_page_config(
     page_title="AI Healthcare Copilot",
     page_icon="🩺",
@@ -49,6 +31,25 @@ st.markdown("""
 }
 </style>
 """, unsafe_allow_html=True)
+
+from brain import chatbot,search_net,generate_report,syptom_sys,extract_pdf,rag_system,retrieve_sys,brain_sys,pneumon_sys,heart_model
+import pandas as pd
+import gdown
+import os
+
+@st.cache_data
+def syptom_data():
+    file_path = "symptom_columns.csv"
+    if not os.path.exists(file_path):
+        file_id = "1pJ_L_RLqzcTpAHMl54IKbtTqz4LcAxwG"
+        url = f"https://drive.google.com/uc?id={file_id}"
+
+        gdown.download(url, file_path, quiet=False)
+
+    return pd.read_csv(file_path)
+
+data = syptom_data()
+symptoms_list = data.drop("diseases", axis=1).columns.tolist()
 
 with st.sidebar:
 
